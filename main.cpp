@@ -20,5 +20,7 @@ int main()
 
     br->run();
 
+    delete br;
+
     return 0;
 }

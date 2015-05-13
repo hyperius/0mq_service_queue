@@ -71,6 +71,22 @@ public:
     {
         broker::serviceDSN = serviceDSN;
     }
+
+    virtual ~broker()
+    {
+        if (connected)
+        {
+            input->close();
+            output->close();
+            service->close();
+            ctx->close();
+
+            delete input;
+            delete output;
+            delete service;
+            delete ctx;
+        }
+    }
 };
 
 #endif //SERVICE_QUEUE_BROKER_H
