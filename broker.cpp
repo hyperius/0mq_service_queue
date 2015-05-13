@@ -105,7 +105,7 @@ void broker::dispatchService()
 
                 writeLock.lock();
                 sendMore(issuer);
-                send("{\"action\":\"shutdown\"}");
+                send("{\"action\":\"shutdown\",\"actionHistory\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":\"\"}");
                 writeLock.unlock();
             }
             else if (action == "quit")

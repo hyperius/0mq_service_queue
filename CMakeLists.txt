@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 2.8)
 project(service_queue)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -12,6 +12,7 @@ find_package(ZeroMQ REQUIRED)
 find_package(JSONCpp REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -fpermissive -lboost_system -lboost_thread")
 
 set(SOURCE_FILES main.cpp main.hpp zmq.hpp)
 
