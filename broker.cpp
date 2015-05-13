@@ -105,7 +105,7 @@ void broker::dispatchService()
 
                 writeLock.lock();
                 sendMore(issuer);
-                send("{\"action\":\"shutdown\",\"actionHistory\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":\"\"}");
+                send("{\"action\":\"shutdown\",\"history\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":{}}");
                 writeLock.unlock();
             }
             else if (action == "quit")
@@ -143,13 +143,17 @@ void broker::connect()
     ctx = new zmq::context_t();
 
     input = new zmq::socket_t(*ctx, ZMQ_PULL);
-    input->bind("tcp://127.0.0.1:8000");
+    input->bind("tcp://127.0.0.1:8100");
 
     output = new zmq::socket_t(*ctx, ZMQ_ROUTER);
-    output->bind("tcp://127.0.0.1:8001");
+    output->bind("tcp://127.0.0.1:8101");
 
     service = new zmq::socket_t(*ctx, ZMQ_ROUTER);
-    service->bind("tcp://127.0.0.1:8002");
+    service->bind("tcp://127.0.0.1:8102");
+
+    LOG << "Listen:   input on 8100";
+    LOG << "Listen:  output on 8101";
+    LOG << "Listen: service on 8102";
 
     connected = true;
 }
