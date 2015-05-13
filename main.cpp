@@ -26,8 +26,15 @@ void initLogging()
             )
     );
 
+    boost::log::add_common_attributes();
+
+    boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
+}
+
+void initFileLogging(string config)
+{
     boost::log::add_file_log (
-        boost::log::keywords::file_name = "service_queue.log",
+        boost::log::keywords::file_name = "./" + config +"/service_queue.log",
         boost::log::keywords::auto_flush = true,
         boost::log::keywords::format =
             (
@@ -38,21 +45,35 @@ void initLogging()
                 << boost::log::expressions::smessage
             )
     );
-
-    boost::log::add_common_attributes();
-
-    boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
     initLogging();
 
     BOOST_LOG_SCOPED_THREAD_TAG("ThreadID", boost::this_thread::get_id());
 
-    std::ifstream ifs("config.json");
+    string config = "default";
     boost::property_tree::ptree pt;
-    boost::property_tree::read_json(ifs, pt);
+
+    if (argc > 1)
+    {
+        config = argv[1];
+    }
+
+    try
+    {
+        std::ifstream ifs("./" + config + "/config.json");
+        boost::property_tree::read_json(ifs, pt);
+
+        initFileLogging(config);
+    }
+    catch (boost::property_tree::ptree_error e)
+    {
+        ERR << "Config error: " << e.what();
+
+        return 1;
+    }
 
     broker *br = broker::getInstance();
 
