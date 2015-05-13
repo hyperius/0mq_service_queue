@@ -22,7 +22,7 @@ if (CMAKE_COMPILER_IS_GNUCXX)
    elseif (GCC_VERSION VERSION_GREATER 4.3 OR GCC_VERSION VERSION_EQUAL 4.3)
 
         message(WARNING "C++0x activated. If you get any errors update to a compiler which fully supports C++11")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -fpermissive -lboost_system -lboost_thread -lboost_filesystem")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -fpermissive -lboost_system -lboost_thread -lboost_filesystem -D_GLIBCXX_USE_NANOSLEEP")
 
    else ()
 

@@ -2,7 +2,9 @@
 #include "main.hpp"
 #include <json/json.h>
 #include <thread>
+#include <chrono>
 #include <signal.h>
+#include <time.h>
 
 using namespace std;
 
@@ -17,6 +19,7 @@ void broker::run()
     connect();
 
     thread          serviceThread = thread(&broker::dispatchService, this);
+    thread          heartbeatThread = thread(&broker::heartbeat, this);
     string          worker;
     zmq::message_t  message;
     zmq::pollitem_t pollItems[]   = {{*input, 0, ZMQ_POLLIN, 0}};
@@ -59,6 +62,7 @@ void broker::run()
     }
 
     serviceThread.join();
+    heartbeatThread.join();
 
     LOG << "Main thread finished";
 }
@@ -117,17 +121,11 @@ void broker::dispatchService()
             {
                 removeWorker(issuer);
 
-                writeLock.lock();
-                try
-                {
-                    sendMore(issuer);
-                    send("{\"action\":\"shutdown\",\"history\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":{}}");
-                }
-                catch (zmq::error_t e)
-                {
-                    ERR << "Send faied: error " << e.num() << ": " << e.what();
-                }
-                writeLock.unlock();
+                sendToWorker(issuer, "shutdown");
+            }
+            else if (action == "pong")
+            {
+                workerPong(issuer);
             }
             else if (action == "quit")
             {
@@ -205,7 +203,7 @@ void broker::registerWorker(const string &id)
 
     for (int i = 0; i < workers.size(); i++)
     {
-        if (id == workers[i])
+        if (id == workers[i].name)
         {
             found = true;
 
@@ -217,7 +215,13 @@ void broker::registerWorker(const string &id)
 
     if (!found)
     {
-        workers.push_back(id);
+        worker_t wrk;
+
+        wrk.name = id;
+        wrk.heartbeatSent = 0;
+        wrk.lastHeartbitRecieved = 0;
+
+        workers.push_back(wrk);
 
         LOG << "Worker registered: " << id;
     }
@@ -232,14 +236,14 @@ void broker::removeWorker(const string &id)
 {
     workersLock.lock();
 
-    vector<string>::iterator it;
-
-    it = find(workers.begin(), workers.end(), id);
-
-    if (it != workers.end())
+    for (vector<worker_t>::iterator it = workers.begin(); it < workers.end(); it++)
     {
-        // found
-        workers.erase(it);
+        if (id == (*it).name)
+        {
+            workers.erase(it);
+
+            break;
+        }
     }
 
     workersLock.unlock();
@@ -275,11 +279,6 @@ void broker::send(const string &data, bool more)
 void broker::send(const zmq::message_t &msg)
 {
     send(msg, false);
-}
-
-void broker::sendMore(const zmq::message_t &msg)
-{
-    send(msg, true);
 }
 
 void broker::send(const zmq::message_t &msg, bool more)
@@ -326,7 +325,7 @@ bool broker::getNextWorker(string &workerName)
         currentWorkerIndex = 0;
     }
 
-    workerName = workers[currentWorkerIndex];
+    workerName = workers[currentWorkerIndex].name;
 
     ++currentWorkerIndex;
 
@@ -356,19 +355,108 @@ void broker::signalHandler(int signal)
 
 void broker::shutdownAllWorkers()
 {
+    for (vector<worker_t>::iterator it = workers.begin(); it < workers.end(); it++)
+    {
+        sendToWorker((*it).name, "shutdown");
+    }
+}
+
+void broker::heartbeat()
+{
+    BOOST_LOG_SCOPED_THREAD_TAG("ThreadID", boost::this_thread::get_id());
+
+    LOG << "Heartbit thread started";
+
+    while (true)
+    {
+        vector<string> toRemove;
+        workersLock.lock();
+
+        for (vector<worker_t>::iterator it = workers.begin(); it < workers.end(); it++)
+        {
+            time_t    now;
+            worker_t& worker = *it;
+
+            time(&now);
+
+            if (0 != worker.heartbeatSent && abs(difftime(worker.heartbeatSent, (0 == worker.lastHeartbitRecieved ? now : worker.lastHeartbitRecieved))) > WORKER_HB_TIMEOUT)
+            {
+                // shutdown worker if heartbeat timed out
+                ERR << "Worker shutdown [timeout]: " << worker.name;
+
+                toRemove.push_back(worker.name);
+
+                continue;
+            }
+
+            if (worker.heartbeatSent == 0 || difftime(now, worker.heartbeatSent) > WORKER_HB_INTERVAL)
+            {
+                sendToWorker(worker.name, "ping");
+                worker.heartbeatSent = now;
+
+                LOG << "[ping] " << worker.name;
+            }
+        }
+
+        workersLock.unlock();
+
+        for (vector<string>::iterator it = toRemove.begin(); it < toRemove.end(); it++)
+        {
+            sendToWorker(*it, "shutdown");
+            removeWorker(*it);
+        }
+
+        toRemove.clear();
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        if (interrupted)
+        {
+            break;
+        }
+    }
+
+    LOG << "Heartbit thread finished";
+}
+
+
+void broker::workerPong(const string &id)
+{
+    workersLock.lock();
+
+    for (vector<worker_t>::iterator it = workers.begin(); it < workers.end(); it++)
+    {
+        worker_t & worker = *it;
+
+        if (id == worker.name)
+        {
+            time(&worker.lastHeartbitRecieved);
+
+            LOG << "[pong] " << id << ": " << difftime(worker.lastHeartbitRecieved, worker.heartbeatSent) << " sec";
+
+            break;
+        }
+    }
+
+    workersLock.unlock();
+}
+
+void broker::sendToWorker(const string &id, const string &data)
+{
+    stringstream ss;
+
+    ss << "{\"action\":\"" << data << "\",\"history\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":{}}";
+
     writeLock.lock();
 
-    for (vector<string>::iterator it = workers.begin(); it < workers.end(); it++)
+    try
     {
-        try
-        {
-            sendMore(*it);
-            send("{\"action\":\"shutdown\",\"history\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":{}}");
-        }
-        catch (zmq::error_t e)
-        {
-            ERR << "Send faied: error " << e.num() << ": " << e.what();
-        }
+        sendMore(id);
+        send(ss.str());
+    }
+    catch (zmq::error_t e)
+    {
+        ERR << "Send faied: error " << e.num() << ": " << e.what();
     }
 
     writeLock.unlock();

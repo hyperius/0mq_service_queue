@@ -8,6 +8,13 @@
 
 using namespace std;
 
+typedef struct
+{
+    string name;
+    time_t heartbeatSent;
+    time_t lastHeartbitRecieved;
+} worker_t;
+
 class broker
 {
 
@@ -22,8 +29,8 @@ private:
     string outputDSN;
     string serviceDSN;
 
-    vector<string> workers;
-    int            currentWorkerIndex;
+    vector<worker_t> workers;
+    int currentWorkerIndex;
 
     mutex writeLock;
     mutex workersLock;
@@ -48,13 +55,17 @@ private:
     void send(const string &data, bool more);
 
     void send(const zmq::message_t &msg);
-    void sendMore(const zmq::message_t &msg);
     void send(const zmq::message_t &msg, bool more);
+
+    void sendToWorker(const string &id, const string &data);
 
     string getAction(const string &data);
     string getMessageData(zmq::message_t &message);
 
     static broker instance;
+
+    void heartbeat();
+    void workerPong(const string &id);
 
 public:
     broker();
