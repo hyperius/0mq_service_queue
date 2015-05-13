@@ -1,14 +1,7 @@
-//
-// Created by Denis Savenko on 31.03.15.
-//
-
 #ifndef SERVICE_QUEUE_BROKER_H
 #define SERVICE_QUEUE_BROKER_H
 
-
 #include "zmq.hpp"
-#include <map>
-#include <list>
 #include <vector>
 #include <mutex>
 #include <condition_variable>
@@ -25,37 +18,35 @@ private:
     zmq::socket_t *output;
     zmq::socket_t *service;
 
-    mutex writeLock;
-
     vector<string> workers;
     int            currentWorkerIndex;
 
+    mutex writeLock;
     mutex workersLock;
+
     condition_variable waitForWorkers;
 
     bool connected;
     bool interrupted;
 
-
     void connect();
 
     void registerWorker(const string &id);
-
     void removeWorker(const string &id);
-
     bool getNextWorker(string &workerName);
 
-    string getAction(const string &data);
+    void dispatchService();
 
     void send(const string &data);
-
     void sendMore(const string &data);
-
     void send(const string &data, bool more);
 
-    string getMessageData(zmq::message_t &message);
+    void send(const zmq::message_t &msg);
+    void sendMore(const zmq::message_t &msg);
+    void send(const zmq::message_t &msg, bool more);
 
-    void dispatchService();
+    string getAction(const string &data);
+    string getMessageData(zmq::message_t &message);
 
 public:
     broker();

@@ -1,7 +1,5 @@
 #include "broker.hpp"
 #include "main.hpp"
-#include <iostream>
-
 #include <json/json.h>
 #include <thread>
 
@@ -9,11 +7,14 @@ using namespace std;
 
 void broker::run()
 {
+    LOG << "Service queue started";
+
     connect();
 
-    thread serviceThread = thread(&broker::dispatchService, this);
-
-    zmq::pollitem_t pollItems[] = {{*input,  0, ZMQ_POLLIN, 0}};
+    thread          serviceThread = thread(&broker::dispatchService, this);
+    string          worker;
+    zmq::message_t  message;
+    zmq::pollitem_t pollItems[]   = {{*input, 0, ZMQ_POLLIN, 0}};
 
     while (true)
     {
@@ -21,31 +22,16 @@ void broker::run()
 
         if (pollItems[0].revents & ZMQ_POLLIN)
         {
-            string data, action;
-            zmq::message_t message;
-
             input->recv(&message);
 
-            data   = getMessageData(message);
-            action = getAction(data);
+            getNextWorker(worker);
 
-            LOG << "action: " << action;
+            writeLock.lock();
 
-            string worker;
+            sendMore(worker);
+            send(message);
 
-            if (getNextWorker(worker))
-            {
-                writeLock.lock();
-
-                sendMore(worker);
-                send(data);
-
-                writeLock.unlock();
-            }
-            else
-            {
-                ERR << "worker not found";
-            }
+            writeLock.unlock();
         }
 
         if (interrupted)
@@ -235,6 +221,31 @@ void broker::send(const string &data, bool more)
 {
     zmq::message_t message(data.size());
     memcpy(message.data(), data.data(), data.size());
+
+    if (more)
+    {
+        output->send(message, ZMQ_SNDMORE);
+    }
+    else
+    {
+        output->send(message);
+    }
+}
+
+void broker::send(const zmq::message_t &msg)
+{
+    send(msg, false);
+}
+
+void broker::sendMore(const zmq::message_t &msg)
+{
+    send(msg, true);
+}
+
+void broker::send(const zmq::message_t &msg, bool more)
+{
+    zmq::message_t message(msg.size());
+    memcpy(message.data(), msg.data(), msg.size());
 
     if (more)
     {
