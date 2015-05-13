@@ -115,7 +115,8 @@ void broker::dispatchService()
 
 
 broker::broker()
-    : currentWorkerIndex(0), connected(false), interrupted(false)
+    : currentWorkerIndex(0), connected(false), interrupted(false),
+      inputDSN("tcp://127.0.0.1:8100"), outputDSN("tcp://127.0.0.1:8101"), serviceDSN("tcp://127.0.0.1:8102")
 {
 }
 
@@ -129,17 +130,17 @@ void broker::connect()
     ctx = new zmq::context_t();
 
     input = new zmq::socket_t(*ctx, ZMQ_PULL);
-    input->bind("tcp://127.0.0.1:8100");
+    input->bind(inputDSN.c_str());
 
     output = new zmq::socket_t(*ctx, ZMQ_ROUTER);
-    output->bind("tcp://127.0.0.1:8101");
+    output->bind(outputDSN.c_str());
 
     service = new zmq::socket_t(*ctx, ZMQ_ROUTER);
-    service->bind("tcp://127.0.0.1:8102");
+    service->bind(serviceDSN.c_str());
 
-    LOG << "Listen:   input on 8100";
-    LOG << "Listen:  output on 8101";
-    LOG << "Listen: service on 8102";
+    LOG << "Listen:   input on " << inputDSN;
+    LOG << "Listen:  output on " << outputDSN;
+    LOG << "Listen: service on " << serviceDSN;
 
     connected = true;
 }

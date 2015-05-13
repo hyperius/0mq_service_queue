@@ -18,6 +18,10 @@ private:
     zmq::socket_t *output;
     zmq::socket_t *service;
 
+    string inputDSN;
+    string outputDSN;
+    string serviceDSN;
+
     vector<string> workers;
     int            currentWorkerIndex;
 
@@ -52,6 +56,21 @@ public:
     broker();
 
     void run();
+
+    void setInputDSN(string inputDSN)
+    {
+        broker::inputDSN = inputDSN;
+    }
+
+    void setOutputDSN(string outputDSN)
+    {
+        broker::outputDSN = outputDSN;
+    }
+
+    void setServiceDSN(string serviceDSN)
+    {
+        broker::serviceDSN = serviceDSN;
+    }
 };
 
 #endif //SERVICE_QUEUE_BROKER_H
