@@ -39,6 +39,8 @@ private:
     void removeWorker(const string &id);
     bool getNextWorker(string &workerName);
 
+    void shutdownAllWorkers();
+
     void dispatchService();
 
     void send(const string &data);

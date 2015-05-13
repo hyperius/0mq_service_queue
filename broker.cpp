@@ -145,6 +145,10 @@ void broker::dispatchService()
         }
     }
 
+    LOG << "Shutting down all workers";
+
+    shutdownAllWorkers();
+
     LOG << "Service dispatcher thread finished";
 }
 
@@ -348,4 +352,24 @@ void broker::signalHandler(int signal)
     ERR << "Signal recieved: " << signal;
 
     getInstance()->interrupted = true;
+}
+
+void broker::shutdownAllWorkers()
+{
+    writeLock.lock();
+
+    for (vector<string>::iterator it = workers.begin(); it < workers.end(); it++)
+    {
+        try
+        {
+            sendMore(*it);
+            send("{\"action\":\"shutdown\",\"history\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":{}}");
+        }
+        catch (zmq::error_t e)
+        {
+            ERR << "Send faied: error " << e.num() << ": " << e.what();
+        }
+    }
+
+    writeLock.unlock();
 }
