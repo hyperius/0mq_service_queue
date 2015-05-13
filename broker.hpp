@@ -52,6 +52,8 @@ private:
     string getAction(const string &data);
     string getMessageData(zmq::message_t &message);
 
+    static broker instance;
+
 public:
     broker();
 
@@ -87,6 +89,10 @@ public:
             delete ctx;
         }
     }
+
+    static broker * getInstance();
+
+    static void signalHandler(int signal);
 };
 
 #endif //SERVICE_QUEUE_BROKER_H

@@ -9,6 +9,10 @@ void broker::run()
 {
     LOG << "Service queue started";
 
+    signal(SIGINT,  broker::signalHandler);
+    signal(SIGTERM, broker::signalHandler);
+    signal(SIGHUP,  broker::signalHandler);
+
     connect();
 
     thread          serviceThread = thread(&broker::dispatchService, this);
@@ -18,7 +22,13 @@ void broker::run()
 
     while (true)
     {
-        zmq::poll(pollItems, 1, 1000);
+        try
+        {
+            zmq::poll(pollItems, 1, 1000);
+        }
+        catch (zmq::error_t e)
+        {
+        }
 
         if (pollItems[0].revents & ZMQ_POLLIN)
         {
@@ -41,17 +51,27 @@ void broker::run()
     }
 
     serviceThread.join();
+
+    LOG << "Main thread finished";
 }
 
 void broker::dispatchService()
 {
+    BOOST_LOG_SCOPED_THREAD_TAG("ThreadID", boost::this_thread::get_id());
+
     LOG << "Service dispatcher thread started";
 
     zmq::pollitem_t pollItems[] = {{*service, 0, ZMQ_POLLIN, 0}};
 
     while (true)
     {
-        zmq_poll(pollItems, 1, 1000);
+        try
+        {
+            zmq_poll(pollItems, 1, 1000);
+        }
+        catch (zmq::error_t e)
+        {
+        }
 
         if (pollItems[0].revents & ZMQ_POLLIN)
         {
@@ -296,3 +316,16 @@ string broker::getMessageData(zmq::message_t &message)
     return string(static_cast<char *>(message.data()), message.size());
 }
 
+broker* broker::getInstance()
+{
+    static broker* instance = new broker();
+
+    return instance;
+}
+
+void broker::signalHandler(int signal)
+{
+    ERR << "Signal recieved: " << signal;
+
+    getInstance()->interrupted = true;
+}
