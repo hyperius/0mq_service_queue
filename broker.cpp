@@ -2,6 +2,7 @@
 #include "main.hpp"
 #include <json/json.h>
 #include <thread>
+#include <signal.h>
 
 using namespace std;
 
@@ -38,8 +39,15 @@ void broker::run()
 
             writeLock.lock();
 
-            sendMore(worker);
-            send(message);
+            try
+            {
+                sendMore(worker);
+                send(message);
+            }
+            catch (zmq::error_t e)
+            {
+                ERR << "Send faied [" << worker << "]: error " << e.num() << ": " << e.what();
+            }
 
             writeLock.unlock();
         }
@@ -110,8 +118,15 @@ void broker::dispatchService()
                 removeWorker(issuer);
 
                 writeLock.lock();
-                sendMore(issuer);
-                send("{\"action\":\"shutdown\",\"history\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":{}}");
+                try
+                {
+                    sendMore(issuer);
+                    send("{\"action\":\"shutdown\",\"history\":[],\"issuer\":\"service_queue\",\"data\":[],\"sections\":{}}");
+                }
+                catch (zmq::error_t e)
+                {
+                    ERR << "Send faied: error " << e.num() << ": " << e.what();
+                }
                 writeLock.unlock();
             }
             else if (action == "quit")
@@ -265,17 +280,22 @@ void broker::sendMore(const zmq::message_t &msg)
 
 void broker::send(const zmq::message_t &msg, bool more)
 {
+    int  flags = 0;
+    bool result;
+
     zmq::message_t message(msg.size());
     memcpy(message.data(), msg.data(), msg.size());
 
     if (more)
     {
-        output->send(message, ZMQ_SNDMORE);
+        flags = ZMQ_SNDMORE;
     }
-    else
+
+    do
     {
-        output->send(message);
+        result = output->send(message, flags);
     }
+    while (!result); // eagain workaround
 }
 
 bool broker::getNextWorker(string &workerName)
