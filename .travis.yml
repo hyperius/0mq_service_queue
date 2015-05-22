@@ -1,0 +1,7 @@
+language: cpp
+compiler:
+  - gcc
+before_install:
+  - sudo apt-get update -qq
+install:
+  - sudo apt-get install -qq libjsoncpp-dev libzmq-dev
