@@ -1,5 +1,6 @@
 #!/bin/sh -ex
 
+cat /etc/issue
 PROOT=`pwd`
 
 mkdir $PROOT/build
