@@ -7,7 +7,7 @@ set(Boost_USE_STATIC_LIBS        ON) # only find static libs
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 
-find_package(Boost 1.57.0 COMPONENTS thread system log filesystem REQUIRED)
+find_package(Boost 1.46.0 COMPONENTS thread system log filesystem REQUIRED)
 find_package(ZeroMQ REQUIRED)
 find_package(JSONCpp REQUIRED)
 
