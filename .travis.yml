@@ -5,5 +5,4 @@ before_install:
   - sudo apt-get update -qq
 install:
   - sudo apt-get install -qq libjsoncpp-dev libzmq3-dev
-script:
-"ci/travis-build.sh"
+script: "ci/travis-build.sh"
