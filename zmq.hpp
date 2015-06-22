@@ -62,6 +62,11 @@
 
 #if ZMQ_VERSION >= ZMQ_MAKE_VERSION(4, 1, 0)
 #define ZMQ_HAS_PROXY_STEERABLE
+/*  Socket event data  */
+typedef struct {
+    uint16_t event;  // id of the event as bitfield
+    int32_t  value ; // value is either error code, fd or reconnect interval
+} zmq_event_t;
 #endif
 
 // In order to prevent unused variable warnings when building in non-debug
@@ -436,6 +441,13 @@ namespace zmq
             throw error_t ();
         }
 
+#ifdef ZMQ_HAS_RVALUE_REFS
+        inline bool send (message_t &&msg_, int flags_ = 0)
+        {
+            return send(msg_, flags_);
+        }
+#endif
+
         inline size_t recv (void *buf_, size_t len_, int flags_ = 0)
         {
             int nbytes = zmq_recv (ptr, buf_, len_, flags_);
@@ -495,8 +507,8 @@ namespace zmq
 #if ZMQ_VERSION_MAJOR >= 4
                 const char* data = static_cast<const char*>(zmq_msg_data(&eventMsg));
                 zmq_event_t msgEvent;
-                msgEvent.event = *(uint16_t*)data; data += sizeof(uint16_t);
-                msgEvent.value = *(int32_t*)data;
+                memcpy(&msgEvent.event, data, sizeof(uint16_t)); data += sizeof(uint16_t);
+                memcpy(&msgEvent.value, data, sizeof(int32_t));
                 zmq_event_t* event = &msgEvent;
 #else
                 zmq_event_t* event = static_cast<zmq_event_t*>(zmq_msg_data(&eventMsg));
